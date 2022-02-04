@@ -1,17 +1,18 @@
 Welcome to the set up for my build. This is everything I've installed and steps
 / order I did it. Note some steps are during main installation are geared 
 towards my system, but a great list to follow for general start.
+
 SPECS:
 Prime-A 	 		MOB
 i5 9600k 	 		CPU
-32GB 3200 Hz		RAM
-dGTX 1080 8GB		GPU
-250GB 970 Evo Pro 		  M.2
-1TB Q5		              M.2
-2TB WDC			HDD
+32GB 3200 Hz			RAM
+dGTX 1080 8GB			GPU
+250GB 970 Evo Pro 		M.2
+1TB Q5		              	M.2
+2TB WDC				HDD
 
-Installing the OS (Arch OCT 2021)
-Built upon from notes JULY 2019
+Installing the OS (Arch JAN 2022)
+Built updated from JAN 2022
 ---------------------------------
 1. Partition the disks
 2. Install essential packages
@@ -170,9 +171,7 @@ umount --all
 * you're all good to do whatever after.
 xdg-user-dirs-update
 
-
-
-#############################################################################
+##########################################################################################
 * Post install tips and tricks
 * with steps on how to set up each one.
 * (mainly the req ones) 
@@ -207,8 +206,6 @@ pacman -Syu
 pacman -S nvidia lib32-nvidia-libgl nvidia-utils nvidia-dkms nvidia-settings
 lib32-mesa vulkan-intel lib32-vulkan-intel vulkan-icd-loader lib32-vulkan-icd-loader
 * reboot
-
-
 
 
 Adding multiple Operating Systems to grub
