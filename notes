@@ -1,0 +1,466 @@
+Welcome to the set up for my build. This is everything I've installed and steps
+/ order I did it. Note some steps are during main installation are geared 
+towards my system, but a great list to follow for general start.
+SPECS:
+Prime-A 	 		MOB
+i5 9600k 	 		CPU
+32GB 3200 Hz		RAM
+dGTX 1080 8GB		GPU
+250GB 970 Evo Pro 		  M.2
+1TB Q5		              M.2
+2TB WDC			HDD
+
+Installing the OS (Arch OCT 2021)
+Built upon from notes JULY 2019
+---------------------------------
+1. Partition the disks
+2. Install essential packages
+3. Config the system
+4. Install GRUB
+5. Install Desktop Environment (XFCE)
+6. All programs after reboot
+
+# first 2 things to always do
+ping archlinux.org (CTR+C to stop)
+timedatectl set-ntp true
+
+#checking what all disk are physically connected to the system. Helps figure out which drive you want to install OS on.
+
+fdisk -l
+
+# cfdisk has a "custom" GUI compared to the standard terminal.
+# Use arrow keys to move around the interface.
+# Swap should be the size of the amount of RAM you have.
+* Create 4 partitions Boot / Swap / Root / Home
+
+cfdisk /dev/sda OR /dev/nvme0n1 
+
+NAME |  SIZE   |    TYPE
+Boot   200M	    EFI System
+Swap    32GB      Linux Swap
+Root    15GB       Linux Filesystem
+Home	201GB     Linux Filesystem
+
+# checking partitions
+gdisk -l /dev/sda
+
+# setup swap partition
+free -m
+mkswap /dev/sda2
+swapon /dev/sda2
+free -m
+
+# format partitions
+mkfs.fat -F 32 /dev/sda1
+mkfs.ext4 /dev/sda3
+mkfs.ext4 /dev/sda4
+
+# install essential packages (very long download depends on your internet)
+mount /dev/sda3 /mnt
+pacstrap /mnt base base-devel linux linux-firmware
+
+# mount partitions
+mount /dev/sda4 /mnt/home
+mkdir /mnt/boot/efi
+mount /dev/sda1 /mnt/boot/efi
+
+# generate fstab
+genfstab -U /mnt >> /mnt/etc/fstab
+cat /mnt/etc/fstab
+arch-chroot /mnt
+
+# timezones
+ln -sf /usr/share/zoneinfo/AREA/CITY  /etc/localtime
+	(America/Chicago OR Europe/Rome)
+hwclock --systohc
+
+# install nano
+pacman -S nano
+
+# localization (will go through a text editor to select the language)
+nano /etc/locale.gen
+* DEL hashtag next to lang
+en_US.UTF-8
+* CTR+X exits and saves file
+locale-gen
+nano /etc/locale.conf
+* it's a empty file so add this below
+LANG=en_US.UTF-8
+* save and exit
+
+# network config
+nano /etc/hostname
+* this will be the name of your computer
+Mars-lab
+* save and exit
+nano /etc/hosts
+* you'll need to add this default config
+127.0.0.1 	localhost
+::1		localhost
+127.0.1.1	mars-lab.localdomain mars-lab
+* save and exit
+
+# initramfs
+mkinitcpio -P
+
+# change root password
+passwd
+
+#install GRUB
+pacman -S grub efibootmgr os-prober
+grub-install --target=x86_64-efi --bootloader-id=GRUB
+grub-mkconfig -o /boot/grub/grub.cfg
+
+# creating new user with password
+useradd -G wheel -s /bin/bash -m -c "tony" tony
+passwd tony
+
+# installing the desktop environment / window manager
+* can either use XFCE, same as mine, or you can use anything else.
+pacman -S xfce4 xfce4-goodies
+
+#install display manager
+pacman -S lightdm lightdm-gtk-greeter 
+pacman -S xorg-server
+nano /etc/lightdm/lightdm.conf
+* you'll have to scroll down till you find this below
+* some new systems like mine or way to fast for the console to keep up, so the login check helps prevent certain commands going to fast and not waiting for other dependencies 
+* remove hashtag and change false to true, to prevent lightdm failing to load on first reboot
+[LightDM ]
+logind-check-graphical=true
+
+* then go down a bit and find the line below
+#greeter-session=example-gtk-gnome
+* replace "gnome" with "greeter" & "example" with "lightdm", should like below
+* then remove the hashtag in the beginning of just this one.
+* greeter-session=lightdm-gtk-greeter
+* save and exit
+systemctl enable lightdm
+
+#install network manager
+pacman -S networkmanager
+systemctl enable NetworkManager
+
+# install some necessary packages to start off with, add more if you wish
+pacman -S vim firefox network-manager-applet git xdg-user-dirs gvfs ntfs-3g
+
+# enable multilib
+nano /etc/pacman.conf
+* look for what's below and DEL hashtag
+[multilib]
+Include=/etc/pacman.d/mirrorlist
+* save and exit
+pacman -Syu
+
+# add user to sudoers list
+* there are multiple ways on doing this
+nano /etc/sudoers
+* scroll down till you see " root ALL=(ALL) ALL " then add line right below it
+tony ALL=(ALL) ALL
+* save and exit
+
+# exit
+* just type exit
+
+# unmount all partitions
+umount --all
+
+# that's it, reboot and you'll be introduced to the desktop environment.
+* once you to the desktop, open the terminal and type one more command, then 
+* you're all good to do whatever after.
+xdg-user-dirs-update
+
+
+
+#############################################################################
+* Post install tips and tricks
+* with steps on how to set up each one.
+* (mainly the req ones) 
+
+For Multimonitors
+------------------------
+Pacman -S arandr autorandr
+* Run it then config how the monitors you want to be like
+* XFCE has a display gui menu set up to help
+
+Enabling Network Manager
+------------------------
+systemctl enable NetworkManager.service
+systemctl start NetworkManager.service
+
+Uncomplicated Firewall
+----------------------
+pacman -S ufw
+systemctl enable ufw.service
+systemctl start ufw.service
+
+Enabling Sound
+--------------
+pacman -S pulseaudio pavucontrol
+* then reboot
+
+Nvidia w/ Intel drivers
+--------------
+* enable multilib
+nano /etc/pacman.conf
+pacman -Syu
+pacman -S nvidia lib32-nvidia-libgl nvidia-utils nvidia-dkms nvidia-settings
+lib32-mesa vulkan-intel lib32-vulkan-intel vulkan-icd-loader lib32-vulkan-icd-loader
+* reboot
+
+
+
+
+Adding multiple Operating Systems to grub
+----------------------------------------------------------
+os-prober has been disabled by default, you need to uncomment/add GRUB_DISABLE_OS_PROBER=false to /etc/default/grub and run sudo update-grub.
+
+Y.A.Y
+-----
+git clone https://aur.archlinux.org/yay.git
+cd yay-git
+makepkg -si
+
+Chrome
+------
+git clone https://aur.archlinux.org/google-chrome.git
+cd google-chrome
+makepkg -si
+
+Spotify 
+git clone https://aur.archlinux.org/spotify.git
+cd spotify
+makepkg -si
+*if cannot create because of missing key, then do	gpg --recv-key $KEYID (whatever the unknown public key is next to the FAILED)
+
+Termite terminal
+----------------
+git clone https://aur.archlinux.org/termite.git
+cd termite
+makepkg -si
+*if cannot create because of missing key, then do	gpg --recv-key $KEYID (whatever the unknown public key is next to the FAILED)
+
+HTOP
+----
+pacman -S htop
+
+Geany
+-----
+pacman -S geany
+
+
+
+# This bottom section will be installing the i3 window manager. Personal preference. Not needed to continue for an arch linux build. 
+
+
+
+
+i3 window manager
+-----------------
+* have to install nitrogen with
+pacman -S nitrogen
+pacman -S i3
+git clone https://aur.archlinux.org/i3ipc-glib-git.git
+cd i3ipc-glib-git 
+makepkg -si
+git clone https://aur.archlinux.org/xfce4-i3-workspaces-plugin-git.git
+cd xfce4-i3-workspaces-plugin-git
+makepkg -si
+* update system
+pacman -Syu
+* go to session and startup in settings and disable 2 things
+* Current Session / xfwm4 - never xfdesktop - never
+* go to application autostart tab and add the i3 application
+name: i3 
+description: Tiling Window Manager 
+command: i3
+* click ok
+* now we got to remove the xfce keyboard shortcuts
+* search keyboard and go to application shortcuts
+* remove all keyboard shortcuts
+* now we'll have to create the i3 config file if it's not there in the first place.
+* the OG config file can found on the git hub https://github.com/i3/i3
+*i3 exit from aur needed for blur lock screen to work
+git clone https://aur.archlinux.org/i3exit.git
+su
+
+rofi
+----
+pacman -S rofi
+pacman -S xorg-xrdb0
+
+polybar
+-------
+git clone https://aur.archlinux.org/polybar.git
+cd polybar
+Makepkg -si
+* than in the terminal type out
+	sudo chmod +x .config/polybar/launch.sh
+
+A lot of packages needed to make it work
+# media controls
+pacman -S platyerctl
+
+
+
+# pacman -S *everything else
+dunst , xautolock , linux-headers , lxappearance , numlockx , steam , lutris , gnome-disks , 
+gnome-calculator , gnome-disk-utility , gnome-tweaks , lightdm-gtk-greeter-settings, lightdm-settings , 
+minecraft-technic-launcher , neofetch , numlockx , os-prober ,   papirus-icon-theme ,  discord , geany , 
+playerctl , xarchiver0 , picom
+
+Git clone https://aur.archlinux.org/i3exit.git
+
+
+
+LIST OF ALL PROGRAMS INSTALLED AT CURRENT BUILD JAN 8 2022
+---------------------------------------------------------------------------------------------------
+arandr 0.1.10-7
+arc-gtk-theme 20220102-1
+autoconf 2.71-1
+automake 1.16.5-1
+autorandr 1.12.1-1
+base 2-2
+bashtop 0.9.25-1
+binutils 2.36.1-3
+bison 3.8.2-1
+discord 0.0.16-1
+downgrade 10.1.0-1
+dunst 1.7.3-1
+efibootmgr 17-2
+exo 4.16.3-1
+fakeroot 1.26-1
+file 5.41-1
+findutils 4.8.0-1
+firefox 95.0.2-1
+flex 2.6.4-3
+garcon 4.16.1-1
+gawk 5.1.1-1
+gcc 11.1.0-3
+geany 1.38-1
+gettext 0.21-1
+git 2.34.1-1
+gnome-calculator 41.1-1
+gnome-disk-utility 41.0-1
+gnome-tweaks 40.0-2
+google-chrome 95.0.4638.54-1
+grep 3.7-1
+groff 1.22.4-6
+grub 2:2.06-3
+gtk4 1:4.6.0-1
+gvfs 1.48.1-1
+gzip 1.11-1
+htop 3.1.2-1
+i3-gaps 4.20.1-2
+i3blocks 1.5-3
+i3exit 2-2
+i3ipc-glib-git r183.1634568402.ef6d030-1
+i3lock 2.13-1
+i3status 2.14-1
+lib32-nvidia-utils 495.46-1
+libreoffice-still 7.1.8-5
+libtool 2.4.6+42+gb88cebd5-16
+lightdm 1:1.30.0-4
+lightdm-gtk-greeter 1:2.0.8-1
+lightdm-gtk-greeter-settings 1.2.2-7
+lightdm-settings 1.5.4-1
+linux 5.15.13.arch1-1
+linux-firmware 20211027.1d00989-1
+linux-headers 5.15.13.arch1-1
+lutris 0.5.9.1-3
+lxappearance 0.6.3-4
+m4 1.4.19-1
+make 4.3-3
+minecraft-technic-launcher 4.695-1
+mousepad 0.5.8-1
+nano 6.0-1
+neofetch 7.1.0-2
+network-manager-applet 1.24.0-1
+networkmanager 1.32.12-2
+nitrogen 1.6.1-4
+ntfs-3g 2021.8.22-1
+numlockx 1.2-5
+nvidia 495.46-7
+nvidia-dkms 495.46-1
+os-prober 1.79-1
+pacman 6.0.1-2
+papirus-icon-theme 20220101-1
+parole 4.16.0-1
+patch 2.7.6-8
+pavucontrol 1:5.0-1
+pcmanfm 1.3.2-1
+picom 8.2-1
+pkgconf 1.8.0-1
+playerctl 2.4.1-1
+polybar-git 3.5.7.r219.gf488a889-1
+pulseaudio 15.0-1
+pulseaudio-alsa 1:1.2.6-2
+redshift-minimal 1.12-4
+ristretto 0.12.1-1
+rofi 1.7.2-1
+rxvt-unicode 9.26-2
+sed 4.8-1
+snapd 2.53.4-1
+spotify 1:1.1.68.632-1
+steam 1.0.0.74-1
+sudo 1.9.8.p2-3
+termite 16.1-1
+texinfo 6.8-2
+thunar 4.16.10-1
+thunar-archive-plugin 0.4.0-3
+thunar-media-tags-plugin 0.3.0-2
+thunar-volman 4.16.0-1
+tumbler 4.16.0-3
+ufw 0.36.1-1
+vertex-themes 20170128-1
+vim 8.2.3890-1
+which 2.21-5
+xarchiver 0.5.4.17-1
+xautolock 2.2-6
+xdg-user-dirs 0.17-3
+xfburn 0.6.2-1
+xfce4-appfinder 4.16.1-2
+xfce4-artwork 0.1.1a_git20110420-6
+xfce4-battery-plugin 1.1.4-1
+xfce4-clipman-plugin 1.6.2-1
+xfce4-cpufreq-plugin 1.2.5-1
+xfce4-cpugraph-plugin 1.2.5-1
+xfce4-datetime-plugin 0.8.1-1
+xfce4-dict 0.8.4-1
+xfce4-diskperf-plugin 2.6.3-1
+xfce4-eyes-plugin 4.5.1-1
+xfce4-fsguard-plugin 1.1.2-1
+xfce4-genmon-plugin 4.1.1-1
+xfce4-i3-workspaces-plugin-git 1.4.0.r0.gbaec90d-1
+xfce4-mailwatch-plugin 1.3.0-1
+xfce4-mount-plugin 1.1.5-1
+xfce4-mpc-plugin 0.5.2-2
+xfce4-netload-plugin 1.4.0-1
+xfce4-notes-plugin 1.9.0-1
+xfce4-notifyd 0.6.2-2
+xfce4-panel 4.16.3-2
+xfce4-power-manager 4.16.0-3
+xfce4-pulseaudio-plugin 0.4.3-1
+xfce4-screensaver 4.16.0-1
+xfce4-screenshooter 1.9.9-2
+xfce4-sensors-plugin 1.4.2-1
+xfce4-session 4.16.0-2
+xfce4-settings 4.16.2-1
+xfce4-smartbookmark-plugin 0.5.2-1
+xfce4-systemload-plugin 1.3.1-1
+xfce4-taskmanager 1.4.2-1
+xfce4-terminal 0.8.10-2
+xfce4-time-out-plugin 1.1.2-1
+xfce4-timer-plugin 1.7.1-1
+xfce4-verve-plugin 2.0.1-1
+xfce4-wavelan-plugin 0.6.2-1
+xfce4-weather-plugin 0.11.0-1
+xfce4-whiskermenu-plugin 2.7.1-1
+xfce4-xkb-plugin 0.8.2-1
+xfconf 4.16.0-2
+xfdesktop 4.16.0-2
+xfwm4 4.16.1-3
+xfwm4-themes 4.10.0-4
+xorg-server 21.1.3-1
+xorg-xbacklight 1.2.3-2
+yay 11.0.2-1
